@@ -1,38 +1,24 @@
-// Created by J. Stowell, WCRC, for Predator Free Lake Brunner
-//
-// NOTES ABOUT THIS LEAFLET MAP
-//
-// Trap.NZ --
-// We haven’t formally released any general purpose reports or API yet 
-// but if it’s useful to you you can get a feed of traps for any number of projects 
-// that have opted into sharing anonymised data. Trap locations are snapped to a 200m grid. 
-// The feed URL is: https://io.trap.nz/maps/trap-killcount?projects=123,456,789 
-//
-// where 123, 456 and 789 are the project IDs you want to map. You can also optionally filter by date by adding:
-//
-// ?date-from=2019-01-01
-// ?date-to=2019-08-01
-//
-// You can see a demo of this in action here: https://www.trap.nz/static/pfw-hex.html  - feel free to use any part of the code. We plan to release some publicly available reports in this style in the near future but hopefully this is useful in the meantime.
-//
-// Thanks,
-// Trap.NZ Team
-
-
+var project_name = 'Pest Free Porirua'
 var project_list = {
-    2170393:"predator-free-lake-brunner/",
-    // eg. 
-    // 123:"name-of-project",
-    // 456:"blah blah"
+      185059:"Plimmerton/",
+      1294291:"Aotea/",
+      238621:"Mana/",
+      265011:"Papakowhai/",
+      381494:"Whitby/",
+      716178:"Paremata/",
+      825071:"Ranui/",
+      376830:"Titahi Bay/",
+      188667:"Pukerua Bay/",
   }
+
   
   var map_opts = {
     id: 'trapMap',
     selector: '#trapMap',
   
-    options: { // Leaflet map constructor
-      center: [-42.661232, 171.496582], // Lake Brunner lat/long
-      zoom: 12,
+    options: { // leaflet map constructor options
+      center: [-41.1058032,174.8619203],
+      zoom: 13,
       minZoom: 11,
       maxZoom: 14,
     },
@@ -55,12 +41,12 @@ var project_list = {
           layers: [
             {
               label: 'LINZ NZ Basemap',
-              url: '//tiles{s}.maps.linz.io/nz_colour_basemap/' + linz_proj + '/{z}/{x}/{y}.png',
+              url: 'https://tiles{s}.maps.linz.io/nz_colour_basemap/' + linz_proj + '/{z}/{x}/{y}.png',
               settings: linz_basemap_settings,
             },
             {
               label: 'LINZ Basemap Labels',
-              url: '//tiles{s}.maps.linz.io/nz_colour_basemap_labels/' + linz_proj + '/{z}/{x}/{y}.png',
+              url: 'https://tiles{s}.maps.linz.io/nz_colour_basemap_labels/' + linz_proj + '/{z}/{x}/{y}.png',
               settings: linz_basemap_settings,
             },
           ],
@@ -68,6 +54,8 @@ var project_list = {
       },
   
       overlay: {
+
+
         catches_hex: {
           label: 'Catch summary hexes',
           layerType: 'L.HexbinLayer',
@@ -79,12 +67,12 @@ var project_list = {
           init: catchesHexInit,
           visible: true,
           settings: {
-            radius: 12,
-            radiusRange: [12, 12],
+            radius: 13,
+            radiusRange: [13, 13],
             opacity: 0.7,
             duration: 0,
             minZoom: 0, // hide below this zoom
-            maxZoom: 13, // increase size above this zoom
+            maxZoom: 14, // increase size above this zoom
             colorScale: ['#FFFFCC', 'yellow', 'orange', 'red', 'brown'],
             allowedSpecies: ['None', 'Other', 'Ferret', 'Hedgehog', 'Mouse', 'Possum', 'Rabbit', 'Rat', 'Stoat', 'Weasel'],
             hoverHandlers: {
@@ -105,29 +93,47 @@ var project_list = {
       scale: { imperial: false },
       layerswitcher: false,
   
-      attribution: { prefix: 'Created for Predator Free Lake Brunner using <a href="https://www.trap.nz"><strong><span style="color:#bd1f2d;">TRAP</span><span style="color:black">.NZ</span></strong></a> data' },
+      // attribution: { prefix: 'Created for <a href="https://www.trap.nz"><strong><span style="color:#bd1f2d;">TRAP</span><span style="color:black">.NZ</span></strong></a> by <a href="https://www.groundtruth.co.nz"><span style="font-family:serif; font-size: 1.2em; color:black"><strong>ground<span style="color:#2e7a34">truth</span></strong></span></a>' },
   
       legends: {
         gt_attribution: {
           position: 'bottomright',
           visible: true,
-        //   legends: [{
-        //     elements: [{
-        //       html: '<style type="text/CSS"><!-- .leaflet-bar .legend-block a, .leaflet-bar .legend-block a:hover { display: inline; } .legend-block { margin: 0 !important; } --></style><div>Created for <a href="https://www.trap.nz"><strong><span style="color:#bd1f2d;">TRAP</span><span style="color:black">.NZ</span></strong></a> by <a href="https://www.groundtruth.co.nz"><span style="font-family:serif; font-size: 1.2em; color:black"><strong>ground<span style="color:#2e7a34">truth</span></strong></span></a></div>',
-        //       style: { 'font-size': '0.6em', 'margin': '0 0.5em' },
-        //     }],
-        //   }],
+          legends: [{
+            elements: [{
+              html: '<style type="text/CSS"><!-- .leaflet-bar .legend-block a, .leaflet-bar .legend-block a:hover { display: inline; } .legend-block { margin: 0 !important; } --></style><div>Data sourced from <a href="https://www.trap.nz"><strong><span style="color:#bd1f2d;">TRAP</span><span style="color:black">.NZ</span></strong></a> by <a href="https://www.groundtruth.co.nz"><span style="font-family:serif; font-size: 1.2em; color:black"><strong>ground<span style="color:#2e7a34">truth</span></strong></span></a></div>',
+              style: { 'font-size': '0.6em', 'margin': '0 0.5em' },
+            }],
+          }],
         },
   
         catch_summary: {
           position: 'bottomleft',
           visible: true,
           ajax: {
-            url: projectBoundaryURL('https://www.trap.nz/project/trap-stats-shape.geojson?'),
+            url: projectBoundaryURL('https://trap.nz/project/trap-stats-shape.geojson?'),
             html: catchSummaryHTML,
           },
           style: { 'font-size': '0.6em', 'margin': '0 0.5em' },
         },
+      },
+     
+   /* summary_info: {
+      position: 'bottomleft',
+      visible: true,
+      ajax: {
+        url: '/project/' + project_id + '/killcount.json',
+        dataType: 'json',
+        html: summaryInfoHTML,
+      },
+    }, */
+      watermark: {
+        src: 'https://www.pestfreeporirua.org.nz/img/pfp-logo.png',
+        width: '64px',
+        height: '64px',
+        opacity: 0.7,
+        position: 'topleft',
+        insertBeforeZoom: true,
       }
     }
   };
@@ -174,6 +180,7 @@ var project_list = {
       }
     });
   }
+
   
   function catchesHexData(data, map, layer, opts) {
     // feed data into hexmap layer
@@ -236,8 +243,12 @@ var project_list = {
         for (var s in species) {
           var count = species[s];
           if (allowedSpecies.indexOf(s) == -1) {
-            // species not in allowed species list, make 'Other'
-            s = 'Other';
+            if (['Rat - Ship', 'Rat - Norway', 'Rat - Kiore'].indexOf(s) != -1) {
+              s = 'Rat';
+            } else {
+              // species not in allowed species list, make 'Other'
+              s = 'Other';
+            }
           }
           if (!strikes.species[s]) strikes.species[s] = 0;
           strikes.species[s] += count;
@@ -260,9 +271,64 @@ var project_list = {
     });
   
     //totals legend
-    var html = '<p><strong>Predator Free Lake Brunner</strong>';
-    html += '<br />Total pests killed: <strong>'+ numberWithCommas(totalKills) + '</strong>';
-    html += '<br />Traps deployed: <strong>'+ numberWithCommas(totalTraps) +'</strong></p>';
+    var html = '<p><h2>' + project_name + '</h2></p><br><hr>';
+    html += '<p><strong>'+ numberWithCommas(totalKills) + '</strong> total pests killed';
+    html += '<br /><strong>'+ numberWithCommas(totalTraps) +'</strong> traps deployed</p>';
   
+    return html;
+  }
+  
+  function summaryInfoHTML(data) {
+    var html = `
+    <div id="killstat-wrapper" style="font-size: 0.7em; padding: 0.5em;">
+      <table class="killstat-summary">
+        <tbody>
+          <tr>
+            <th>Traps:</th>
+            <td>` + data.traps + `</td>
+          </tr>
+          <tr>
+            <th>Bait&nbsp;stations:</th>
+            <td>` + data.baitstations + `</td>
+          </tr>
+        </tbody>
+      </table>`;
+
+      if (data.killCount_year) {
+        html += `
+        <table class="killstat-counts">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Project</th>
+              <th>Year</th>
+              <th>Month</th>
+            </tr>
+          </thead>
+          <tbody>`;
+            for (var name in data.species_kills.family) {
+              var value = data.species_kills.family[name];
+              if (value.projectTotal) {
+                html += `
+                <tr>
+                  <th>` + name + `</th>
+                  <td>` + value.projectTotal + `</td>
+                  <td>` + value.yearTotal + `</td>
+                  <td>` + value.monthTotal + `</td>
+                </tr>`;
+              }
+            }
+            html += `
+            <tr>
+              <th>Total:</th>
+              <th>` + data.killCount_project + `</th>
+              <th>` + data.killCount_year + `</th>
+              <th>` + data.killCount_month + `</th>
+            </tr>
+          </tbody>
+        </table>`;
+      }
+    html += `</div>`;
+
     return html;
   }

@@ -1,5 +1,7 @@
 
 body {
+  font-family: 'Open Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+   -webkit-font-smoothing: antialiased;
   padding: 0;
   margin: 0;
 }
@@ -113,16 +115,17 @@ body {
 /* Filters */
 #filters {
 	position: absolute;
-	top: 10px;
+	top: 50px;
 	left: 3em;
 	z-index: 99999999;
 	background: #DDD;
 	padding: 0.5em;
 	border-radius: 5px;
 }
-#species {
+.filter {
+  float: left;
 }
-#species select {
+.filter select {
   font-size: 20px;
   overflow: hidden;
   height: 30px;

@@ -1,13 +1,18 @@
 var $ = jQuery;
 
-function buildMap(opts) {
-  if (opts.fullscreen) {
-    $('html, body, ' + opts.selector).css('width', '100%').css('height', '100%');
-    $(opts.selector).height($(window).height()).width($(window).width());
+function buildMap(opts, map) {
+  if (map) {
+    if (opts.options.minZoom) map.setMinZoom(opts.options.minZoom);
+    if (opts.options.maxZoom) map.setMaxZoom(opts.options.maxZoom);
+  } else {
+    if (opts.fullscreen) {
+      $('html, body, ' + opts.selector).css('width', '100%').css('height', '100%');
+      $(opts.selector).height($(window).height()).width($(window).width());
+    }
+    var map = new L.map(opts.id, opts.options);
   }
-
-  var map = new L.map(opts.id, opts.options);
   map.map_opts = opts;
+
 
   if (opts.boundsPadding) {
     map.setMaxBounds(map.getBounds().pad(opts.boundsPadding));
@@ -73,18 +78,26 @@ function buildMap(opts) {
           if (legend_opts.ajax.success) {
             var custom_success = legend_opts.ajax.success;
             legend_opts.ajax.success = function(data) {
-              legend_opts.legends.push({ elements: [{ html: legend_opts.ajax.html(data) }]});
+              legend_opts.legends.push({ elements: [{ html: legend_opts.ajax.html(data, legend_id, legend_opts) }]});
               custom_success(data, map, legend_id, legend_opts);
             }
           } else {
             legend_opts.ajax.success = function(data) {
-              legend_opts.legends.push({ elements: [{ html: legend_opts.ajax.html(data) }]});
+              legend_opts.legends.push({ elements: [{ html: legend_opts.ajax.html(data, map, legend_id, legend_opts) }]});
               var legend = L.control.htmllegend(legend_opts);
               map.legends[legend_id] = legend;
               if (legend_opts.visible) map.addControl(legend);
             }
           }
-          ajaxLoad(map, legend_opts.ajax);
+          if (legend_opts.ajax.waitForEvent) {
+            // subscribe to custom event
+            document.addEventListener(legend_opts.ajax.waitForEvent, function(e) {
+              ajaxLoad(map, legend_opts.ajax, arguments);
+            }, false);
+
+          } else {
+            ajaxLoad(map, legend_opts.ajax);
+          }
         } else {
           var legend = L.control.htmllegend(legend_opts);
           map.legends[legend_id] = legend;
@@ -100,13 +113,35 @@ function buildMap(opts) {
     }
   }
 
+  if (opts.controls.watermark) {
+    if (opts.controls.watermark.insertBeforeZoom) map.zoomControl.remove();
+    new L.control.watermark(opts.controls.watermark).addTo(map);
+    if (opts.controls.watermark.insertBeforeZoom) new L.Control.Zoom({ position: 'topleft' }).addTo(map);
+  }
+
   if (opts.controls.fullscreen) map.addControl(new L.Control.Fullscreen());
   if (opts.controls.locate) L.control.locate(opts.controls.locate).addTo(map);
   if (opts.controls.scale) L.control.scale(opts.controls.scale).addTo(map);
 
+  // subscribe to custom layer_load event
+  document.addEventListener('map_layers_loaded', onMapLayerLoad, false);
+
+  // fix layer order every time a layer is enabled in the UI
+  map.on('overlayadd', function (e) {
+    if (map.layer_control._handlingClick) { // Executes only on UI toggle
+      fixLayerOrder(map);
+    }
+  });
+
+  // fix fullscreen map bounds change
+  map.on('fullscreenchange', function() {
+    map.invalidateSize();
+  });
+
   return map;
 }
 
+///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\
 
 function createLayer(map, layer_opts) {
   // console.log(layer_opts.label);
@@ -141,6 +176,9 @@ function createLayer(map, layer_opts) {
         if (layer_opts.onData) {
           layer_opts.onData(map, layer, layer_opts.data, layer_opts.settings);
         }
+        if (layer_opts.init) {
+          layer_opts.init(map, layer, layer_opts);
+        }
 
       } else if (layer_opts.ajax) {
         layer = new L.geoJSON(null, layer_opts.settings);
@@ -151,12 +189,19 @@ function createLayer(map, layer_opts) {
           } else {
             layer.addData(data.features);
           }
+          if (layer_opts.init) {
+            layer_opts.init(map, layer, layer_opts);
+          }
         }
-        ajaxLoad(map, layer_opts.ajax);
-      }
+        if (layer_opts.ajax.waitForEvent) {
+          // subscribe to custom event
+          document.addEventListener(layer_opts.ajax.waitForEvent, function(e) {
+            ajaxLoad(map, layer_opts.ajax, arguments);
+          }, false);
 
-      if (layer_opts.init) {
-        layer_opts.init(map, layer, layer_opts);
+        } else {
+          ajaxLoad(map, layer_opts.ajax);
+        }
       }
 
       return layer;
@@ -191,7 +236,15 @@ function createLayer(map, layer_opts) {
             }
           }
         }
-        ajaxLoad(map, layer_opts.ajax);
+        if (layer_opts.ajax.waitForEvent) {
+          // subscribe to custom event
+          document.addEventListener(layer_opts.ajax.waitForEvent, function(e) {
+            ajaxLoad(map, layer_opts.ajax, arguments);
+          }, false);
+
+        } else {
+          ajaxLoad(map, layer_opts.ajax);
+        }
       }
 
       if (layer_opts.init) {
@@ -210,13 +263,13 @@ function createLayer(map, layer_opts) {
       // assume lat and lng are taken from geojson data unless overridden
       if (!layer_opts.settings.lat) {
         layer_opts.settings.lat = function(d) {
-          return d.geometry.coordinates[0];
+          return d.geometry.coordinates[1];
         }
       }
       layer.lat(layer_opts.settings.lat);
       if (!layer_opts.settings.lng) {
         layer_opts.settings.lng = function(d) {
-          return d.geometry.coordinates[1];
+          return d.geometry.coordinates[0];
         }
       }
       layer.lng(layer_opts.settings.lng);
@@ -250,7 +303,15 @@ function createLayer(map, layer_opts) {
             layer.data(data.features);
           }
         }
-        ajaxLoad(map, layer_opts.ajax);
+        if (layer_opts.ajax.waitForEvent) {
+          // subscribe to custom event
+          document.addEventListener(layer_opts.ajax.waitForEvent, function(e) {
+            ajaxLoad(map, layer_opts.ajax, arguments);
+          }, false);
+
+        } else {
+          ajaxLoad(map, layer_opts.ajax);
+        }
       }
 
       if (layer_opts.init) {
@@ -273,6 +334,22 @@ function createLayer(map, layer_opts) {
 
 ///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\
 
+L.Control.Watermark = L.Control.extend({
+  onAdd: function(map) {
+    var img = L.DomUtil.create('img');
+    img.src = this.options.src;
+    img.style.width = this.options.width;
+    img.style.height = this.options.height;
+    img.style.opacity = this.options.opacity;
+    return img;
+  },
+});
+L.control.watermark = function(opts) {
+  return new L.Control.Watermark(opts);
+}
+
+///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\
+
 if (L.hexbinLayer) {
   // ensure hexes are removed when the layer is removed
   L.HexbinLayer.prototype.onRemove = function(map) {
@@ -291,9 +368,14 @@ if (L.hexbinLayer) {
 function ajaxLoad(map, opts) {
   addSpinner(map);
   var old_complete = opts.complete;
+  // disable jsonp for security
+  opts.jsonp = false;
   opts.complete = function(jqXHR, textStatus) {
     removeSpinner(map);
     if (old_complete) old_complete(jqXHR, textStatus);
+  }
+  if (typeof opts.url === 'function') {
+    opts.url = opts.url();
   }
   $.ajax(opts);
 }
@@ -302,29 +384,101 @@ function addSpinner(map) {
   if (!map.spinners) {
     map.spinners = 0;
     var spinnerContent = '<div class="lds-dual-ring"></div>';
-    $(spinnerContent).insertBefore(map.map_opts.selector);
+    var mapContainer = map.getContainer();
+    $(mapContainer).parent().css('position', 'relative');
+    $(spinnerContent).insertBefore(mapContainer);
   }
   map.spinners++;
 }
 function removeSpinner(map) {
   map.spinners--;
   if (!map.spinners) {
+    // remove the spinner
     $('.lds-dual-ring').fadeOut(1000, function() { $(this).remove(); });
+    // trigger custom layer_load event
+    var map_layers_loaded = new CustomEvent('map_layers_loaded');
+    map_layers_loaded.map = map;
+    document.dispatchEvent(map_layers_loaded);
   }
 }
 
+function onMapLayerLoad (e) {
+  var map = e.map;
+  fixLayerOrder(map);
+}
+
+function fixLayerOrder(map) {
+  if (map.layer_control) {
+    var layers = map.layer_control._layers;
+    for (var i in layers) {
+      var layer = layers[i];
+      if (layer.overlay) {
+        if (layer.layer && layer.layer.bringToFront) {
+          layer.layer.bringToFront();
+        }
+      }
+    }
+  }
+}
+
+
 ///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\
 
-function $_GET( name ){
-  name = name.replace(/[\[]/,"\\\[").replace(/[\]]/,"\\\]");
-  var regexS = "[\\?&]"+name+"=([^&#]*)";
-  var regex = new RegExp( regexS );
-  var results = regex.exec( window.location.href );
-  if ( results == null ) {
-    return "";
+// Get querystring parameter from URL
+function param(name) {
+  // NOTE: replaced by queryParam() function. Left here for legacy continuity.
+
+  // name = name.replace(/[\[]/,"\\\[").replace(/[\]]/,"\\\]");
+  // var regexS = "[\\?&]"+name+"=([^&#]*)";
+  // var regex = new RegExp( regexS );
+  // var results = regex.exec( window.location.href );
+  // if ( results == null ) {
+  //   return "";
+  // } else {
+  //   return decodeURIComponent(results[1]);
+  // }
+  return queryParam(name);
+}
+
+function queryParam(key) {
+  const groupParamsByKey = (params) => [...params.entries()].reduce((acc, tuple) => {
+   // getting the key and value from each tuple
+   const [key, val] = tuple;
+   if(acc.hasOwnProperty(key)) {
+      // if the current key is already an array, we'll add the value to it
+      if(Array.isArray(acc[key])) {
+        acc[key] = [...acc[key], val]
+      } else {
+        // if it's not an array, but contains a value, we'll convert it into an array
+        // and add the current value to it
+        acc[key] = [acc[key], val];
+      }
+   } else {
+    // plain assignment if no special case is present
+    acc[key] = val;
+   }
+
+   return acc;
+  }, {});
+
+  var search = location.search.substring(1);
+  var urlParams = new URLSearchParams(search);
+  var params = groupParamsByKey(urlParams);
+
+  if (key) {
+    if (params[key]) return params[key];
+    if (params[key + '[]']) return params[key + '[]'];
   } else {
-    return decodeURIComponent(results[1]);
+    return params;
   }
+}
+
+
+// get URL path arg e.g. http://x.com/a/b/c.html arg(0) = a, arg(1) = b
+function arg(index) {
+  var pathArray = window.location.pathname.split('/');
+  // the first element will be empty because the path starts with a /
+  return pathArray[index + 1];
 }
 
 function createRelativeDate(days, months, years) {
@@ -361,7 +515,8 @@ function toPoints(d) {
 ///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\
 
 var linz_basemap_settings = {
-  maxZoom: 15,
+  maxZoom: 22,
+  maxNativeZoom: 18,
   subdomains: '1234',
   attribution: '<a href="https://www.linz.govt.nz/linz-copyright" target="_blank">Basemap sourced from LINZ. CC-BY 4.0</a>',
   zIndex: 2
